@@ -1,7 +1,7 @@
 name: Run Ansible Playbook
 
 on:
-  workflow_dispatch: # This creates the manual "Run Workflow" button in GitHub Actions
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -21,7 +21,6 @@ jobs:
         with:
           playbook: playbook-SystemInfo1.yaml
           directory: ./
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
           options: |
             -i inventory.ini
             --ssh-common-args='-o StrictHostKeyChecking=no'
