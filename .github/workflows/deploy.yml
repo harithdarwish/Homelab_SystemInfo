@@ -27,6 +27,9 @@ jobs:
           mkdir -p ~/.ssh
           echo "Host ssh.harithwish.com" >> ~/.ssh/config
           echo "  ProxyCommand /usr/local/bin/cloudflared access ssh --hostname %h" >> ~/.ssh/config
+          echo "  ControlMaster auto" >> ~/.ssh/config
+          echo "  ControlPath ~/.ssh/ctl-%r@%h:%p" >> ~/.ssh/config
+          echo "  ControlPersist 10m" >> ~/.ssh/config
           chmod 600 ~/.ssh/config
 
       - name: Run Ansible Playbook
@@ -35,4 +38,4 @@ jobs:
           playbook: playbook-SystemInfo1.yaml
           directory: ./
           options: |
-            -i inventory.ini
+            -i inventory-tunnelcloudflare.ini
