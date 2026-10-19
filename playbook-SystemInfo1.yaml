@@ -1,0 +1,16 @@
+# =====================================================================
+# Playbook Name: System Health Check
+# Target: Ubuntu1
+# =====================================================================
+
+- name: Run SystemInfo Health Check
+  hosts: ubuntu1_SytemInfo  # target at iventory.ini
+  become: yes
+  tasks:
+    - name: Execute system_info.py script
+      command: python3 /home/harith/project/SystemInfo/system_info.py
+      register: script_output
+
+    - name: Display script results
+      debug:
+        msg: "{{ script_output.stdout_lines }}"
