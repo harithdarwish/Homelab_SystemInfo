@@ -1,0 +1,27 @@
+name: Run Ansible Playbook
+
+on:
+  workflow_dispatch: # This creates the manual "Run Workflow" button in GitHub Actions
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up SSH Key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Run Ansible Playbook
+        uses: dawidd6/action-ansible-playbook@v2
+        with:
+          playbook: playbook-SystemInfo1.yaml
+          directory: ./
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          options: |
+            -i inventory.ini
+            --ssh-common-args='-o StrictHostKeyChecking=no'
