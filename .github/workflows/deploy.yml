@@ -23,4 +23,3 @@ jobs:
           directory: ./
           options: |
             -i inventory.ini
-            --ssh-common-args='-o StrictHostKeyChecking=no'
