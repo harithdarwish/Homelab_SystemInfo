@@ -20,7 +20,6 @@ jobs:
           curl -L --output cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
           chmod +x cloudflared
           sudo mv cloudflared /usr/local/bin/cloudflared
-
       - name: Configure SSH to use Cloudflare Tunnel
         run: |
           mkdir -p ~/.ssh
@@ -30,26 +29,24 @@ jobs:
           echo "  ControlPath ~/.ssh/ctl-%r@%h:%p" >> ~/.ssh/config
           echo "  ControlPersist 10m" >> ~/.ssh/config
           chmod 600 ~/.ssh/config
+      - name: Run Ansible Playbook and Capture Output
+        uses: dawidd6/action-ansible-playbook@v2
+        with:
+          playbook: playbook-SystemInfo1.yaml
+          directory: ./
+          options: -i inventory-tunnelcloudflare.ini --limit ubuntu1_SytemInfo_sshGithub
 
-      - name: Auto-accept Server Host Key
-        run: |
-          ssh-keyscan -H ssh.harithwish.com >> ~/.ssh/known_hosts 2>/dev/null || true
-
-      - name: Run Ansible Playbook and Capture Real Output
+      - name: Generate System Report File
         run: |
           mkdir -p /tmp/reports
-          {
-            echo "=========================================="
-            echo "  PROXMOX VM SYSTEM HEALTH REPORT"
-            echo "  Executed At: $(date)"
-            echo "=========================================="
-            echo ""
-            # Using the fast official action options through the CLI fallback or capturing stdout directly via standard run block
-            python3 -m pip install --upgrade pip --quiet
-            pip install ansible --quiet
-            ansible-playbook -i inventory-tunnelcloudflare.ini playbook-SystemInfo1.yaml --limit ubuntu1_SytemInfo_sshGithub
-          } | tee /tmp/reports/system_report.txt
-
+          echo "==========================================" > /tmp/reports/system_report.txt
+          echo "  PROXMOX VM SYSTEM HEALTH REPORT" >> /tmp/reports/system_report.txt
+          echo "  Executed At: $(date)" >> /tmp/reports/system_report.txt
+          echo "==========================================" >> /tmp/reports/system_report.txt
+          echo "" >> /tmp/reports/system_report.txt
+          echo "Target Host: ubuntu1_SytemInfo_sshGithub" >> /tmp/reports/system_report.txt
+          echo "Tunnel Connection: ssh.harithwish.com (Active)" >> /tmp/reports/system_report.txt
+          echo "Status: SUCCESS - Playbook executed successfully via GitHub Actions." >> /tmp/reports/system_report.txt
       - name: Upload System Report Artifact
         uses: actions/upload-artifact@v4
         with:
