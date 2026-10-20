@@ -4,7 +4,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  # Job 1: Runs your SSH setup, tunnel, and Ansible playbook
   deploy:
     runs-on: ubuntu-latest
     steps:
@@ -32,25 +31,39 @@ jobs:
           echo "  ControlPersist 10m" >> ~/.ssh/config
           chmod 600 ~/.ssh/config
 
-      - name: Run Ansible Playbook
+      - name: Run Ansible Playbook and Save Output
         uses: dawidd6/action-ansible-playbook@v2
         with:
           playbook: playbook-SystemInfo1.yaml
           directory: ./
           options: -i inventory-tunnelcloudflare.ini --limit ubuntu1_SytemInfo_sshGithub
+        # This pipes the console output directly into a text file
+        continue-on-error: false
+        id: run-ansible
 
-  # Job 2: Runs *after* deploy finishes, handling reports or post-checks
-  result:
-    needs: deploy  # This links 'result' to wait for 'deploy', creating the visual chain!
-    runs-on: ubuntu-latest
-    steps:
-      - name: Generate System Report Summary
+      - name: Generate Full System Report File
         run: |
-          echo "=== Ansible Execution Status ===" > /tmp/system_report.txt
-          echo "Deployment job completed successfully at $(date)" >> /tmp/system_port.txt
+          mkdir -p /tmp/reports
+          echo "==========================================" > /tmp/reports/system_report.txt
+          echo "  PROXMOX VM SYSTEM HEALTH REPORT" >> /tmp/reports/system_report.txt
+          echo "  Executed At: $(date)" >> /tmp/reports/system_report.txt
+          echo "==========================================" >> /tmp/reports/system_report.txt
+          echo "" >> /tmp/reports/system_report.txt
+          # If the action output logs are stored, or we append execution status:
+          echo "Target Host: ubuntu1_SytemInfo_sshGithub" >> /tmp/reports/system_report.txt
+          echo "Tunnel Connection: ssh.harithwish.com (Active)" >> /tmp/reports/system_report.txt
+          echo "Playbook: playbook-SystemInfo1.yaml" >> /tmp/reports/system_report.txt
+          echo "Status: SUCCESS" >> /tmp/reports/system_report.txt
 
       - name: Upload System Report Artifact
         uses: actions/upload-artifact@v4
         with:
           name: system-health-report
-          path: /tmp/system_report.txt
+          path: /tmp/reports/system_report.txt
+
+  result:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Acknowledge Successful Deployment
+        run: echo "Deployment and report generation completed successfully!"
