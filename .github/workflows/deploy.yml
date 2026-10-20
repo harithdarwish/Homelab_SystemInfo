@@ -1,3 +1,4 @@
+
 name: Run Ansible Playbook
 
 on:
@@ -6,6 +7,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -17,45 +19,146 @@ jobs:
 
       - name: Set up Cloudflare Tunnel CLI
         run: |
-          curl -L --output cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+          curl -fL --output cloudflared \
+            https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
           chmod +x cloudflared
           sudo mv cloudflared /usr/local/bin/cloudflared
+
       - name: Configure SSH to use Cloudflare Tunnel
         run: |
           mkdir -p ~/.ssh
+          touch ~/.ssh/config
           echo "Host ssh.harithwish.com" >> ~/.ssh/config
           echo "  ProxyCommand /usr/local/bin/cloudflared access ssh --hostname %h" >> ~/.ssh/config
           echo "  ControlMaster auto" >> ~/.ssh/config
           echo "  ControlPath ~/.ssh/ctl-%r@%h:%p" >> ~/.ssh/config
           echo "  ControlPersist 10m" >> ~/.ssh/config
           chmod 600 ~/.ssh/config
-      - name: Run Ansible Playbook and Capture Output
-        uses: dawidd6/action-ansible-playbook@v2
-        with:
-          playbook: playbook-SystemInfo1.yaml
-          directory: ./
-          options: -i inventory-tunnelcloudflare.ini --limit ubuntu1_SytemInfo_sshGithub
 
-      - name: Generate System Report File
+      - name: Auto-accept Server Host Key
+        run: |
+          touch ~/.ssh/known_hosts
+          ssh-keyscan -H ssh.harithwish.com >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Run Ansible and Generate Reports
+        shell: bash
         run: |
           mkdir -p /tmp/reports
-          echo "==========================================" > /tmp/reports/system_report.txt
-          echo "  PROXMOX VM SYSTEM HEALTH REPORT" >> /tmp/reports/system_report.txt
-          echo "  Executed At: $(date)" >> /tmp/reports/system_report.txt
-          echo "==========================================" >> /tmp/reports/system_report.txt
-          echo "" >> /tmp/reports/system_report.txt
-          echo "Target Host: ubuntu1_SytemInfo_sshGithub" >> /tmp/reports/system_report.txt
-          echo "Tunnel Connection: ssh.harithwish.com (Active)" >> /tmp/reports/system_report.txt
-          echo "Status: SUCCESS - Playbook executed successfully via GitHub Actions." >> /tmp/reports/system_report.txt
-      - name: Upload System Report Artifact
+
+          # Install Ansible on the GitHub Actions runner
+          sudo apt-get update -qq
+          sudo apt-get install -y ansible
+
+          # Capture the actual Ansible output
+          set +e
+          ANSIBLE_NOCOLOR=1 ansible-playbook \
+            -i inventory-tunnelcloudflare.ini \
+            playbook-SystemInfo1.yaml \
+            --limit ubuntu1_SytemInfo_sshGithub \
+            2>&1 | tee /tmp/reports/ansible_output.txt
+
+          ANSIBLE_EXIT_CODE=${PIPESTATUS[0]}
+          set -e
+
+          # Determine the actual execution status
+          if [ "$ANSIBLE_EXIT_CODE" -eq 0 ]; then
+            STATUS="SUCCESS"
+          else
+            STATUS="FAILED"
+          fi
+
+          # Build the report with the real playbook output
+          {
+            echo "=========================================="
+            echo "       PROXMOX VM SYSTEM HEALTH REPORT"
+            echo "=========================================="
+            echo "Executed At: $(date)"
+            echo "Target Inventory Group: ubuntu1_SytemInfo_sshGithub"
+            echo "SSH Endpoint: ssh.harithwish.com"
+            echo "Execution Status: $STATUS"
+            echo "Ansible Exit Code: $ANSIBLE_EXIT_CODE"
+            echo ""
+            echo "=========================================="
+            echo "          ACTUAL ANSIBLE OUTPUT"
+            echo "=========================================="
+            cat /tmp/reports/ansible_output.txt
+          } | tee /tmp/reports/system_report.txt
+
+          # Convert the text report into a printable HTML report
+          python3 - <<'PY'
+          from pathlib import Path
+          from html import escape
+
+          report = Path("/tmp/reports/system_report.txt").read_text()
+
+          page = f"""<!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>System Health Report</title>
+            <style>
+              body {{
+                font-family: Arial, sans-serif;
+                max-width: 1000px;
+                margin: 30px auto;
+                padding: 0 20px;
+                color: #222;
+              }}
+              h1 {{ font-size: 24px; }}
+              .print-button {{
+                padding: 10px 18px;
+                cursor: pointer;
+                margin-bottom: 20px;
+              }}
+              pre {{
+                white-space: pre-wrap;
+                overflow-wrap: anywhere;
+                background: #f4f4f4;
+                border: 1px solid #ddd;
+                padding: 20px;
+                line-height: 1.5;
+                font-size: 13px;
+              }}
+              @media print {{
+                .print-button {{ display: none; }}
+                body {{ margin: 0; max-width: none; }}
+                pre {{ background: white; border: none; padding: 0; }}
+              }}
+            </style>
+          </head>
+          <body>
+            <h1>System Health Report</h1>
+            <button class="print-button" onclick="window.print()">
+              Print / Save as PDF
+            </button>
+            <pre>{escape(report)}</pre>
+          </body>
+          </html>
+          """
+
+          Path("/tmp/reports/system_report.html").write_text(page)
+          PY
+
+          # Fail the job if Ansible failed, but preserve the reports
+          exit "$ANSIBLE_EXIT_CODE"
+
+      - name: Upload System Health Reports
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: system-health-report
-          path: /tmp/reports/system_report.txt
+          path: |
+            /tmp/reports/system_report.txt
+            /tmp/reports/system_report.html
+          if-no-files-found: warn
+          retention-days: 30
 
   result:
     needs: deploy
     runs-on: ubuntu-latest
+
     steps:
       - name: Acknowledge Successful Deployment
         run: echo "Deployment and report generation completed successfully!"
+
