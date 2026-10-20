@@ -33,6 +33,7 @@ jobs:
 
       - name: Run Ansible Playbook and Capture Output
         uses: dawidd6/action-ansible-playbook@v2
+          id: run-ansible
         with:
           playbook: playbook-SystemInfo1.yaml
           directory: ./
