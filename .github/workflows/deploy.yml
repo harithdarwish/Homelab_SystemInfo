@@ -1,22 +1,28 @@
-name: Run Ansible Playbook & Deploy Report
+
+name: Run Ansible Playbook
 
 on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Prepare Report Directory
-        run: mkdir -p reports
+        run: mkdir -p reports site
 
       - name: Set up SSH Key
         uses: webfactory/ssh-agent@v0.9.0
@@ -68,33 +74,43 @@ jobs:
 
           report_dir = Path("reports")
           report_dir.mkdir(exist_ok=True)
+
           output_file = report_dir / "ansible_output.txt"
           report_file = report_dir / "system_report.txt"
           html_file = report_dir / "system_report.html"
 
           status = os.environ.get("ANSIBLE_STATUS", "unknown").upper()
           run_number = os.environ.get("RUN_NUMBER", "unknown")
-          timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+          timestamp = datetime.now(timezone.utc).strftime(
+              "%Y-%m-%d %H:%M:%S UTC"
+          )
 
           if output_file.exists():
-              actual_output = output_file.read_text(encoding="utf-8", errors="replace")
+              actual_output = output_file.read_text(
+                  encoding="utf-8", errors="replace"
+              )
           else:
-              actual_output = "Ansible output log was not found.\nCheck the Ansible action logs for details.\n"
+              actual_output = (
+                  "Ansible output log was not found.\n"
+                  "Check the GitHub Actions logs for details.\n"
+              )
 
           report = f"""==================================================
-             PROXMOX VM SYSTEM HEALTH REPORT
+          PROXMOX VM SYSTEM HEALTH REPORT
           ==================================================
           Workflow Run: {run_number}
           Generated: {timestamp}
           Target Group: ubuntu1_SytemInfo_sshGithub
           SSH Endpoint: ssh.harithwish.com
           Ansible Action Status: {status}
+
+          ==================================================
+          ACTUAL ANSIBLE OUTPUT
           ==================================================
 
-                    ACTUAL ANSIBLE OUTPUT
-          ==================================================
           {actual_output}
           """
+
           report_file.write_text(report, encoding="utf-8")
 
           html = f"""<!DOCTYPE html>
@@ -102,49 +118,88 @@ jobs:
           <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
-            <title>Proxmox VM System Health Report</title>
+            <title>SystemInfo Health Report</title>
             <style>
-              body {{ font-family: monospace; background-color: #1e1e1e; color: #d4d4d4; padding: 20px; max-width: 1000px; margin: 30px auto; }}
-              h1 {{ font-size: 22px; color: #4ec9b0; }}
-              .status {{ padding: 10px; background: #252526; border-radius: 5px; border: 1px solid #333; }}
-              pre {{ white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.4; background: #252526; border: 1px solid #333; padding: 15px; font-size: 13px; color: #ce9178; }}
-              button {{ padding: 8px 16px; cursor: pointer; margin-bottom: 15px; background: #0e639c; color: white; border: none; border-radius: 4px; }}
-              button:hover {{ background: #1177bb; }}
-              @media print {{ button {{ display: none; }} body {{ background: white; color: black; }} pre {{ background: white; color: black; border: none; }} }}
+              body {{
+                font-family: Arial, sans-serif;
+                max-width: 1000px;
+                margin: 30px auto;
+                padding: 20px;
+                color: #222;
+                line-height: 1.6;
+              }}
+              header {{
+                border-bottom: 2px solid #ddd;
+                margin-bottom: 24px;
+                padding-bottom: 12px;
+              }}
+              .status {{
+                padding: 12px;
+                background: #f2f2f2;
+                border-radius: 5px;
+              }}
+              pre {{
+                white-space: pre-wrap;
+                overflow-wrap: anywhere;
+                line-height: 1.5;
+                background: #f5f5f5;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+                padding: 18px;
+                font-size: 13px;
+                overflow-x: auto;
+              }}
+              button {{
+                padding: 10px 18px;
+                cursor: pointer;
+                margin-bottom: 16px;
+              }}
+              footer {{
+                margin-top: 30px;
+                color: #666;
+                font-size: 13px;
+              }}
+              @media print {{
+                button {{ display: none; }}
+                body {{ margin: 0; max-width: none; }}
+                pre {{ background: white; border: none; padding: 0; }}
+              }}
             </style>
           </head>
           <body>
-            <h1>Proxmox VM System Health Report</h1>
+            <header>
+              <h1>SystemInfo Health Report</h1>
+              <p>Ubuntu VM monitoring report generated by Ansible.</p>
+            </header>
             <p><strong>Workflow Run:</strong> {escape(run_number)}</p>
             <p><strong>Generated:</strong> {escape(timestamp)}</p>
-            <p><strong>Target:</strong> ubuntu1_SytemInfo_sshGithub</p>
-            <p class="status"><strong>Ansible Action Status:</strong> {escape(status)}</p>
-            <button onclick="window.print()">Print / Save as PDF</button>
-            <h2>Actual Ansible Output</h2>
+            <p><strong>Target Group:</strong> ubuntu1_SytemInfo_sshGithub</p>
+            <p class="status"><strong>Ansible Status:</strong>
+              {escape(status)}</p>
+            <button onclick="window.print()">Print Report</button>
+            <h2>System Information</h2>
             <pre>{escape(actual_output)}</pre>
+            <footer>
+              SystemInfo | Automatically published using GitHub Actions
+            </footer>
           </body>
           </html>
           """
+
           html_file.write_text(html, encoding="utf-8")
+          print(f"Text report created: {report_file}")
+          print(f"HTML report created: {html_file}")
+          print(f"Ansible output log found: {output_file.exists()}")
+
+          # Prepare the static website's homepage.
+          Path("site").mkdir(exist_ok=True)
+          (Path("site") / "index.html").write_text(
+              html, encoding="utf-8"
+          )
           PY
 
-      - name: Prepare Public Web Files for GitHub Pages
+      - name: Upload System Health Reports
         if: always()
-        run: |
-          mkdir -p public
-          # Copy generated html report to root index.html so it loads instantly at the URL
-          cp reports/system_report.html public/index.html
-          cp reports/system_report.txt public/system_report.txt
-
-      - name: Upload Artifact for GitHub Pages
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: 'public'
-
-      - name: Deploy to GitHub Pages
-        uses: actions/deploy-pages@v4
-
-      - name: Upload Artifacts Archive (Backup)
         uses: actions/upload-artifact@v4
         with:
           name: system-health-report
@@ -152,16 +207,20 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
+      - name: Upload Website to GitHub Pages
+        if: steps.ansible.outcome == 'success'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site/
+
+      - name: Deploy Website to GitHub Pages
+        if: steps.ansible.outcome == 'success'
+        id: deployment
+        uses: actions/deploy-pages@v4
+
       - name: Fail Workflow if Ansible Failed
         if: steps.ansible.outcome == 'failure'
         run: |
-          echo "Ansible playbook failed. Check the captured output."
+          echo "Ansible playbook failed. Check the workflow logs."
           exit 1
 
-  result:
-    needs: deploy
-    if: success()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Acknowledge Successful Deployment
-        run: echo "Deployment and report generation completed successfully!"
