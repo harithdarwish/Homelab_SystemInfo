@@ -31,7 +31,11 @@ jobs:
           echo "  ControlPersist 10m" >> ~/.ssh/config
           chmod 600 ~/.ssh/config
 
-      - name: Run Playbook and Capture Real-Time Output
+      - name: Auto-accept Server Host Key
+        run: |
+          ssh-keyscan -H ssh.harithwish.com >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Run Ansible Playbook and Capture Real Output
         run: |
           mkdir -p /tmp/reports
           {
@@ -40,6 +44,9 @@ jobs:
             echo "  Executed At: $(date)"
             echo "=========================================="
             echo ""
+            # Using the fast official action options through the CLI fallback or capturing stdout directly via standard run block
+            python3 -m pip install --upgrade pip --quiet
+            pip install ansible --quiet
             ansible-playbook -i inventory-tunnelcloudflare.ini playbook-SystemInfo1.yaml --limit ubuntu1_SytemInfo_sshGithub
           } | tee /tmp/reports/system_report.txt
 
