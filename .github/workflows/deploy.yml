@@ -39,3 +39,4 @@ jobs:
           directory: ./
           options: |
             -i inventory-tunnelcloudflare.ini
+             --limit ubuntu1_SytemInfo_sshGithub
