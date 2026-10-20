@@ -27,137 +27,122 @@ jobs:
       - name: Configure SSH to use Cloudflare Tunnel
         run: |
           mkdir -p ~/.ssh
-          touch ~/.ssh/config
-          echo "Host ssh.harithwish.com" >> ~/.ssh/config
-          echo "  ProxyCommand /usr/local/bin/cloudflared access ssh --hostname %h" >> ~/.ssh/config
-          echo "  ControlMaster auto" >> ~/.ssh/config
-          echo "  ControlPath ~/.ssh/ctl-%r@%h:%p" >> ~/.ssh/config
-          echo "  ControlPersist 10m" >> ~/.ssh/config
+          cat >> ~/.ssh/config <<'EOF'
+          Host ssh.harithwish.com
+            ProxyCommand /usr/local/bin/cloudflared access ssh --hostname %h
+            ControlMaster auto
+            ControlPath ~/.ssh/ctl-%r@%h:%p
+            ControlPersist 10m
+          EOF
           chmod 600 ~/.ssh/config
 
-      - name: Auto-accept Server Host Key
+      - name: Prepare Report Directory
+        run: mkdir -p reports
+
+      - name: Run Ansible Playbook and Capture Output
+        id: ansible
+        continue-on-error: true
+        uses: dawidd6/action-ansible-playbook@v2
+        with:
+          playbook: playbook-SystemInfo1.yaml
+          directory: ./
+          options: -i inventory-tunnelcloudflare.ini --limit ubuntu1_SytemInfo_sshGithub
+
+      - name: Generate Report from Ansible Output
+        if: always()
+        env:
+          JOB_STATUS: ${{ steps.ansible.outcome }}
+          RUN_DATE: ${{ github.run_started_at }}
+          RUN_NUMBER: ${{ github.run_number }}
         run: |
-          touch ~/.ssh/known_hosts
-          ssh-keyscan -H ssh.harithwish.com >> ~/.ssh/known_hosts 2>/dev/null || true
+          mkdir -p reports
 
-      - name: Run Ansible and Generate Reports
-        shell: bash
-        run: |
-          mkdir -p /tmp/reports
+          cat > reports/system_report.txt <<EOF
+          ==========================================
+                 PROXMOX VM SYSTEM HEALTH REPORT
+          ==========================================
+          Workflow Run: ${RUN_NUMBER}
+          Executed At: ${RUN_DATE}
+          Target: ubuntu1_SytemInfo_sshGithub
+          SSH Endpoint: ssh.harithwish.com
+          Ansible Step Status: ${JOB_STATUS}
 
-          # Install Ansible on the GitHub Actions runner
-          sudo apt-get update -qq
-          sudo apt-get install -y ansible
+          NOTE:
+          This file records the workflow run metadata.
+          The actual Ansible output is available in the
+          GitHub Actions job logs.
 
-          # Capture the actual Ansible output
-          set +e
-          ANSIBLE_NOCOLOR=1 ansible-playbook \
-            -i inventory-tunnelcloudflare.ini \
-            playbook-SystemInfo1.yaml \
-            --limit ubuntu1_SytemInfo_sshGithub \
-            2>&1 | tee /tmp/reports/ansible_output.txt
+          To view the real system metrics:
+          1. Open this workflow run in GitHub Actions.
+          2. Expand "Run Ansible Playbook and Capture Output".
+          3. Review the Ansible task results and play recap.
+          ==========================================
+          EOF
 
-          ANSIBLE_EXIT_CODE=${PIPESTATUS[0]}
-          set -e
-
-          # Determine the actual execution status
-          if [ "$ANSIBLE_EXIT_CODE" -eq 0 ]; then
-            STATUS="SUCCESS"
-          else
-            STATUS="FAILED"
-          fi
-
-          # Build the report with the real playbook output
-          {
-            echo "=========================================="
-            echo "       PROXMOX VM SYSTEM HEALTH REPORT"
-            echo "=========================================="
-            echo "Executed At: $(date)"
-            echo "Target Inventory Group: ubuntu1_SytemInfo_sshGithub"
-            echo "SSH Endpoint: ssh.harithwish.com"
-            echo "Execution Status: $STATUS"
-            echo "Ansible Exit Code: $ANSIBLE_EXIT_CODE"
-            echo ""
-            echo "=========================================="
-            echo "          ACTUAL ANSIBLE OUTPUT"
-            echo "=========================================="
-            cat /tmp/reports/ansible_output.txt
-          } | tee /tmp/reports/system_report.txt
-
-          # Convert the text report into a printable HTML report
-          python3 - <<'PY'
-          from pathlib import Path
-          from html import escape
-
-          report = Path("/tmp/reports/system_report.txt").read_text()
-
-          page = f"""<!DOCTYPE html>
+          cat > reports/system_report.html <<EOF
+          <!DOCTYPE html>
           <html lang="en">
           <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <title>System Health Report</title>
             <style>
-              body {{
+              body {
                 font-family: Arial, sans-serif;
-                max-width: 1000px;
-                margin: 30px auto;
-                padding: 0 20px;
+                max-width: 850px;
+                margin: 35px auto;
+                padding: 20px;
                 color: #222;
-              }}
-              h1 {{ font-size: 24px; }}
-              .print-button {{
-                padding: 10px 18px;
-                cursor: pointer;
-                margin-bottom: 20px;
-              }}
-              pre {{
+              }
+              h1 { font-size: 25px; }
+              .status { padding: 12px; background: #eee; }
+              pre {
                 white-space: pre-wrap;
                 overflow-wrap: anywhere;
-                background: #f4f4f4;
-                border: 1px solid #ddd;
-                padding: 20px;
-                line-height: 1.5;
-                font-size: 13px;
-              }}
-              @media print {{
-                .print-button {{ display: none; }}
-                body {{ margin: 0; max-width: none; }}
-                pre {{ background: white; border: none; padding: 0; }}
-              }}
+                line-height: 1.6;
+              }
+              button { padding: 10px 18px; cursor: pointer; }
+              @media print {
+                button { display: none; }
+                body { margin: 0; max-width: none; }
+              }
             </style>
           </head>
           <body>
-            <h1>System Health Report</h1>
-            <button class="print-button" onclick="window.print()">
-              Print / Save as PDF
-            </button>
-            <pre>{escape(report)}</pre>
+            <h1>Proxmox VM System Health Report</h1>
+            <p><strong>Workflow run:</strong> ${RUN_NUMBER}</p>
+            <p><strong>Executed at:</strong> ${RUN_DATE}</p>
+            <p><strong>Target:</strong> ubuntu1_SytemInfo_sshGithub</p>
+            <p class="status"><strong>Ansible step status:</strong> ${JOB_STATUS}</p>
+            <p>
+              The actual system metrics are displayed in the
+              GitHub Actions job logs. This report contains run metadata,
+              not the full Ansible output.
+            </p>
+            <button onclick="window.print()">Print / Save as PDF</button>
           </body>
           </html>
-          """
+          EOF
 
-          Path("/tmp/reports/system_report.html").write_text(page)
-          PY
-
-          # Fail the job if Ansible failed, but preserve the reports
-          exit "$ANSIBLE_EXIT_CODE"
-
-      - name: Upload System Health Reports
+      - name: Upload System Health Report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: system-health-report
-          path: |
-            /tmp/reports/system_report.txt
-            /tmp/reports/system_report.html
+          path: reports/
           if-no-files-found: warn
           retention-days: 30
 
+      - name: Fail Workflow if Ansible Failed
+        if: steps.ansible.outcome == 'failure'
+        run: |
+          echo "Ansible playbook failed. Check the Ansible step logs."
+          exit 1
+
   result:
     needs: deploy
+    if: success()
     runs-on: ubuntu-latest
-
     steps:
       - name: Acknowledge Successful Deployment
         run: echo "Deployment and report generation completed successfully!"
