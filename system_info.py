@@ -10,6 +10,7 @@ commands = {
     "Memory": ["free", "-h"],
     "Disk": ["df", "-h", "--total"],  # Added --total for a quick summary row
     "IP Address": ["ip", "-br", "addr"],
+    "Listening Ports": ["ss", "-tulpn"], # Added active listening ports & sockets
     "Failed Services": ["systemctl", "--failed", "--no-pager"],
 }
 
