@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Job 1: Runs your SSH setup, tunnel, and Ansible playbook
   deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -37,6 +37,20 @@ jobs:
         with:
           playbook: playbook-SystemInfo1.yaml
           directory: ./
-          options: |
-            -i inventory-tunnelcloudflare.ini
-             --limit ubuntu1_SytemInfo_sshGithub
+          options: -i inventory-tunnelcloudflare.ini --limit ubuntu1_SytemInfo_sshGithub
+
+  # Job 2: Runs *after* deploy finishes, handling reports or post-checks
+  result:
+    needs: deploy  # This links 'result' to wait for 'deploy', creating the visual chain!
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate System Report Summary
+        run: |
+          echo "=== Ansible Execution Status ===" > /tmp/system_report.txt
+          echo "Deployment job completed successfully at $(date)" >> /tmp/system_port.txt
+
+      - name: Upload System Report Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: system-health-report
+          path: /tmp/system_report.txt
