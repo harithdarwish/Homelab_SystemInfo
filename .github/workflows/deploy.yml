@@ -31,23 +31,17 @@ jobs:
           echo "  ControlPersist 10m" >> ~/.ssh/config
           chmod 600 ~/.ssh/config
 
-      - name: Run Ansible Playbook and Capture Output
-        uses: dawidd6/action-ansible-playbook@v2
-        with:
-          playbook: playbook-SystemInfo1.yaml
-          directory: ./
-          options: -i inventory-tunnelcloudflare.ini --limit ubuntu1_SytemInfo_sshGithub
-
-      - name: Generate System Report File
+      - name: Run Playbook and Capture Real-Time Output
         run: |
           mkdir -p /tmp/reports
-          echo "==========================================" > /tmp/reports/system_report.txt
-          echo "  PROXMOX VM SYSTEM HEALTH REPORT" >> /tmp/reports/system_report.txt
-          echo "  Executed At: $(date)" >> /tmp/reports/system_report.txt
-          echo "==========================================" >> /tmp/reports/system_report.txt
-          echo "" >> /tmp/reports/system_report.txt
-          # This pulls the actual live console output captured from the action!
-          echo "${{ steps.run-ansible.outputs.output }}" >> /tmp/reports/system_report.txt
+          {
+            echo "=========================================="
+            echo "  PROXMOX VM SYSTEM HEALTH REPORT"
+            echo "  Executed At: $(date)"
+            echo "=========================================="
+            echo ""
+            ansible-playbook -i inventory-tunnelcloudflare.ini playbook-SystemInfo1.yaml --limit ubuntu1_SytemInfo_sshGithub
+          } | tee /tmp/reports/system_report.txt
 
       - name: Upload System Report Artifact
         uses: actions/upload-artifact@v4
