@@ -1,10 +1,10 @@
-# =====================================================================
+# # =====================================================================
 # Playbook Name: System Health Check
 # Target: Ubuntu1
 # =====================================================================
 
 - name: Run SystemInfo Health Check
-  hosts: ubuntu1_SytemInfo  # target at iventory.ini
+  hosts: ubuntu1_SytemInfo:ubuntu1_SytemInfo_sshGithub
   become: yes
   tasks:
     - name: Execute system_info.py script
