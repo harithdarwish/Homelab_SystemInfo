@@ -10,21 +10,15 @@ A beginner homelab project that automates Linux system health checks using Pytho
 - Display network interfaces
 - Identify failed system services
 
-## Planned Improvements
-- Run checks remotely using Ansible
-- Store the project on GitHub
-- Add a GitHub Actions workflow
-- Trigger checks manually or on a schedule
-- Generate system health reports
-
-## Run Locally
-
-```bash
-python3 system_info.py
-```
-
 ## Environment
 - Ubuntu 24.04 LTS
 - Python 3
 - Git
 
+## Run Locally
+
+```bash
+cd /home/harith/project/SystemInfo && python3 system_info.py
+cd /home/harith/project/SystemInfo && ansible-playbook -i inventory.ini playbook-SystemInfo1.yaml
+cd /home/harith/project/SystemInfo/.github/workflows && vim deploy.yml
+```
