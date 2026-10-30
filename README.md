@@ -1,6 +1,6 @@
 # Linux System Information Automation
 
-A beginner homelab project that automates Linux system health checks using Python, Ansible, GitHub, and GitHub Actions. Environment : Ubuntu 24.04 LTS, Python 3, Git
+A beginner homelab project that automates Linux system health checks using Python, Ansible, GitHub, and GitHub Actions.
 
 Current Features
 - Display hostname and uptime
@@ -9,8 +9,7 @@ Current Features
 - Check disk usage
 - Display network interfaces
 - Identify failed system services
-
-## Environment
+Environment
 - Ubuntu 24.04 LTS
 - Python 3
 - Git
