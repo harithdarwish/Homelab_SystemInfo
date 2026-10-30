@@ -20,6 +20,7 @@ cd ~/project/SystemInfo/project/SystemInfo/.github/workflows && vim deploy.yml
 
 ## Clone and Run locally
 ```bash
+mkdir -p ~/project
 git clone https://github.com/harithdarwish/Homelab_SystemInfo.git ~/project/SystemInfo
 cd ~/project/SystemInfo && vim inventory.ini
 chmod +x system_info.py && python3 system_info.py
