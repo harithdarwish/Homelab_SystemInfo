@@ -2,17 +2,13 @@
 
 A beginner homelab project that automates Linux system health checks using Python, Ansible, GitHub, and GitHub Actions.
 
-Current Features
+Display and Requirement
 - Display hostname and uptime
 - Check Linux kernel version
 - Review memory usage
 - Check disk usage
 - Display network interfaces
 - Identify failed system services
-Environment
-- Ubuntu 24.04 LTS
-- Python 3
-- Git
 
 ## Run Locally
 
