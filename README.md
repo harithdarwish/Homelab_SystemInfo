@@ -18,7 +18,7 @@ A beginner homelab project that automates Linux system health checks using Pytho
 ## Run Locally
 
 ```bash
-cd /home/harith/project/SystemInfo && python3 system_info.py
-cd /home/harith/project/SystemInfo && ansible-playbook -i inventory.ini playbook-SystemInfo1.yaml
-cd /home/harith/project/SystemInfo/.github/workflows && vim deploy.yml
+cd ~/project/SystemInfo && python3 system_info.py
+cd ~/project/SystemInfo && ansible-playbook -i inventory.ini playbook-SystemInfo1.yaml
+cd ~/project/SystemInfo/project/SystemInfo/.github/workflows && vim deploy.yml
 ```
